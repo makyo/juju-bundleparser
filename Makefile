@@ -1,4 +1,4 @@
-.PHONY: clean-pyc clean-build docs clean
+.PHONY: check clean-pyc clean-build docs clean
 
 help:
 	@echo "clean - remove all build, test, coverage and Python artifacts"
@@ -34,11 +34,13 @@ clean-test:
 	rm -f .coverage
 	rm -fr htmlcov/
 
+check: test lint coverage
+
 lint:
 	flake8 bundleparser tests
 
 test:
-	python setup.py test
+	nosetests --verbosity 2 tests
 
 test-all:
 	tox
@@ -46,8 +48,6 @@ test-all:
 coverage:
 	coverage run --source bundleparser setup.py test
 	coverage report -m
-	coverage html
-	open htmlcov/index.html
 
 docs:
 	rm -f docs/bundleparser.rst
