@@ -281,10 +281,10 @@ class TestHandleRelations(unittest.TestCase):
                     'args': [
                         [
                             '$addService-3',
-                            {'name': 'mysql'}
+                            {'name': 'foo'}
                         ], [
                             '$addService-1',
-                            {'name': 'django'}
+                            {'name': 'bar'}
                         ]
                     ],
                     'requires': [

@@ -148,7 +148,7 @@ def handle_relations(changeset):
                 [
                     '${}'.format(
                         changeset.services_added[rel_name.split(':')[0]]),
-                    {'name': rel_name.split(':')[0]},
+                    {'name': rel_name.split(':')[1]},
                 ] for rel_name in relation
             ],
             'requires': [changeset.services_added[rel_name.split(':')[0]] for
