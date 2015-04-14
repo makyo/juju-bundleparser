@@ -1,0 +1,52 @@
+services:
+  configsvr:
+    charm: cs:precise/mongodb-28
+    num_units: 3
+    options:
+      replicaset: configsvr
+    annotations:
+      gui-x: "2528.00146484375"
+      gui-y: "794.591796875"
+  mongos:
+    charm: cs:precise/mongodb-28
+    num_units: 1
+    annotations:
+      gui-x: "2528.00341796875"
+      gui-y: "1113.7550048828125"
+  shard1:
+    charm: cs:precise/mongodb-28
+    num_units: 3
+    options:
+      replicaset: shard1
+    annotations:
+      gui-x: "2163.205078125"
+      gui-y: "1338.6932983398438"
+  shard2:
+    charm: cs:precise/mongodb-28
+    num_units: 3
+    options:
+      replicaset: shard2
+    annotations:
+      gui-x: "2530.71728515625"
+      gui-y: "1448.6185913085938"
+  shard3:
+    charm: cs:precise/mongodb-28
+    num_units: 3
+    options:
+      replicaset: shard3
+    annotations:
+      gui-x: "2884.498291015625"
+      gui-y: "1335.8310546875"
+machines:
+    1:
+      series: trusty
+series: precise
+relations:
+- - mongos:mongos
+  - shard3:database
+- - mongos:mongos-cfg
+  - configsvr:configsvr
+- - mongos:mongos
+  - shard1:database
+- - mongos:mongos
+  - shard2:database

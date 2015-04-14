@@ -24,6 +24,7 @@ def _parse_v3_unit_placement(placement):
         service = placement
     return UnitPlacement(container, machine, service, unit)
 
+
 def _parse_v4_unit_placement(placement):
     container = machine = service = unit = ''
     if ':' in placement:
@@ -36,84 +37,125 @@ def _parse_v4_unit_placement(placement):
         service = placement
     return UnitPlacement(container, machine, service, unit)
 
-def parse(bundle):
-    changeset = []
-    unit_records = {}
-    action_index = itertools.count()
-    charms_added = {}
+
+class ChangeSet(object):
     services_added = {}
     machines_added = {}
-    units_added = {}
 
-    # machines -> charm -> service -> units -> relations
-    for service_name, service in bundle['services'].items():
+    def __init__(self, bundle):
+        self.bundle = bundle
+        self._changeset = []
+        self._counter = itertools.count()
+
+    def send(self, change):
+        self._changeset.append(change)
+
+    def recv(self):
+        changeset = self._changeset
+        self._changeset = []
+        return changeset
+
+    def next_action(self):
+        return self._counter.next()
+
+
+def parse(bundle):
+    changeset = ChangeSet(bundle)
+    handler = handle_services
+    while True:
+        handler = handler(changeset)
+        for change in changeset.recv():
+            yield change
+        if handler is None:
+            break
+
+
+def handle_services(changeset):
+    charms = {}
+    for service_name, service in changeset.bundle['services'].items():
         # Add the addCharm record if one hasn't been added yet.
-        if service['charm'] not in charms_added:
-            record_id = 'addCharm-{}'.format(action_index.next())
-            changeset.append({
+        if service['charm'] not in charms:
+            record_id = 'addCharm-{}'.format(changeset.next_action())
+            changeset.send({
                 'id': record_id,
                 'method': 'addCharm',
                 'args': [service['charm']],
                 'requires': [],
             })
-            charms_added[service['charm']] = record_id
+            charms[service['charm']] = record_id
 
         # Add the deploy record for this service.
-        record_id = 'addService-{}'.format(action_index.next())
-        changeset.append({
+        record_id = 'addService-{}'.format(changeset.next_action())
+        changeset.send({
             'id': record_id,
             'method': 'deploy',
-            'args': [service['charm'], service_name, service.get('options', {})],
-            'requires': [charms_added[service['charm']]],
+            'args': [
+                service['charm'],
+                service_name,
+                service.get('options', {})
+            ],
+            'requires': [charms[service['charm']]],
         })
-        services_added[service_name] = record_id
+        changeset.services_added[service_name] = record_id
+    return handle_machines
 
-    for machine_name, machine in bundle.get('machines', {}).items():
-        record_id = 'addMachine-{}'.format(action_index.next())
-        changeset.append({
+
+def handle_machines(changeset):
+    for machine_name, machine in changeset.bundle.get('machines', {}).items():
+        record_id = 'addMachine-{}'.format(changeset.next_action())
+        changeset.send({
             'id': record_id,
             'method': 'addMachine',
-            'args': [], # TODO
+            'args': [],  # TODO
             'requires': [],
         })
-        machines_added[machine_name] = record_id
+        changeset.machines_added[machine_name] = record_id
+    return handle_units
 
-    # First pass, add the unit records so that we can refer to them later.
-    for service_name, service in bundle['services'].items():
+
+def handle_units(changeset):
+    units, records = {}, {}
+    for service_name, service in changeset.bundle['services'].items():
         for i in range(service['num_units']):
-            record_id = 'addUnit-{}'.format(action_index.next())
+            record_id = 'addUnit-{}'.format(changeset.next_action())
             unit_name = '{}/{}'.format(service_name, i)
-            unit_records[record_id] = {
+            records[record_id] = {
                 'id': record_id,
                 'method': 'addUnit',
-                'args': ['${}'.format(services_added[service_name]), 1, None],
+                'args': [
+                    '${}'.format(changeset.services_added[service_name]),
+                    1,
+                    None,
+                ],
                 'requires': [],
             }
-            units_added[unit_name] = {
+            units[unit_name] = {
                 'record': record_id,
                 'service': service_name,
                 'unit': i,
             }
     # Second pass, ensure that requires and placement directives are taken into account.
-    for service_name, service in bundle['services'].items():
+    for service_name, service in changeset.bundle['services'].items():
         # Add the addUnits record for each unit.
         placement_directives = service.get('to', [])
         if isinstance(placement_directives, basestring):
             placement_directives = [placement_directives]
-        if placement_directives and 'machines' in bundle:
+        if placement_directives and 'machines' in changeset.bundle:
             placement_directives += placement_directives[-1:] * \
                 (service['num_units'] - len(placement_directives))
         for i in range(service['num_units']):
-            unit = units_added['{}/{}'.format(service_name, i)]
-            record = unit_records[unit['record']]
+            unit = units['{}/{}'.format(service_name, i)]
+            record = records[unit['record']]
             if i < len(placement_directives):
-                if 'machines' in bundle:
+                if 'machines' in changeset.bundle:
                     placement = _parse_v4_unit_placement(placement_directives[i])
                     if placement['machine']:
-                        machine_id = machines_added[placement['machine']]
+                        machine_id = changeset.machines_added[
+                            placement['machine']]
                         record['requires'].append(machine_id)
                         record['args'][2] = '${}'.format(machine_id)
                 else:
                     placement = _parse_v3_unit_placement(placement_directives[i])
+            changeset.send(record)
 
-    return changeset + unit_records.values()
+

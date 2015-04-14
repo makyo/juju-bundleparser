@@ -8,6 +8,7 @@ from . import (
     validate,
 )
 
+
 def main():
     bundle = yaml.safe_load(sys.stdin)
 
@@ -15,8 +16,12 @@ def main():
     if errors:
         sys.exit(errors)
 
-    print(json.dumps(parse.parse(bundle), indent=4))
-
+    print('[')
+    for num, change in enumerate(parse.parse(bundle)):
+        if num:
+            print(',')
+        print(json.dumps(change, indent=4))
+    print(']')
 
 if __name__ == '__main__':
     main()
