@@ -10,7 +10,7 @@ Tests for `bundleparser` module.
 
 import unittest
 
-from bundleparser import bundleparser
+# from bundleparser import bundleparser
 
 
 class TestBundleparser(unittest.TestCase):

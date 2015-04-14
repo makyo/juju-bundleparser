@@ -15,10 +15,10 @@ UnitPlacement = namedtuple(
 def _parse_v3_unit_placement(placement):
     container = machine = service = unit = ''
     if ':' in placement:
-        contaner, placement = placement.split(':')
+        container, placement = placement.split(':')
     if '=' in placement:
         placement, unit = placement.split('=')
-    if placement.is_digit():
+    if placement.isdigit():
         machine = placement
     else:
         service = placement
@@ -28,10 +28,10 @@ def _parse_v3_unit_placement(placement):
 def _parse_v4_unit_placement(placement):
     container = machine = service = unit = ''
     if ':' in placement:
-        contaner, placement = placement.split(':')
+        container, placement = placement.split(':')
     if '/' in placement:
         placement, unit = placement.split('/')
-    if placement.is_digit():
+    if placement.isdigit():
         machine = placement
     else:
         service = placement
@@ -59,9 +59,10 @@ class ChangeSet(object):
         return self._counter.next()
 
 
-def parse(bundle):
+def parse(bundle, handler=None):
     changeset = ChangeSet(bundle)
-    handler = handle_services
+    if handler is None:
+        handler = handle_services
     while True:
         handler = handler(changeset)
         for change in changeset.recv():
@@ -134,7 +135,8 @@ def handle_units(changeset):
                 'service': service_name,
                 'unit': i,
             }
-    # Second pass, ensure that requires and placement directives are taken into account.
+    # Second pass, ensure that requires and placement directives are taken into
+    # account.
     for service_name, service in changeset.bundle['services'].items():
         # Add the addUnits record for each unit.
         placement_directives = service.get('to', [])
@@ -148,14 +150,14 @@ def handle_units(changeset):
             record = records[unit['record']]
             if i < len(placement_directives):
                 if 'machines' in changeset.bundle:
-                    placement = _parse_v4_unit_placement(placement_directives[i])
+                    placement = _parse_v4_unit_placement(
+                        placement_directives[i])
                     if placement['machine']:
                         machine_id = changeset.machines_added[
                             placement['machine']]
                         record['requires'].append(machine_id)
                         record['args'][2] = '${}'.format(machine_id)
                 else:
-                    placement = _parse_v3_unit_placement(placement_directives[i])
+                    placement = _parse_v3_unit_placement(
+                        placement_directives[i])
             changeset.send(record)
-
-
