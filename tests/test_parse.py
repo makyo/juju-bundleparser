@@ -283,14 +283,19 @@ class TestHandleRelations(unittest.TestCase):
                             '$addService-3',
                             {'name': 'mysql'}
                         ], [
-                            '$addService-1', 
+                            '$addService-1',
                             {'name': 'django'}
                         ]
-                    ], 
+                    ],
                     'requires': [
-                        'addService-3', 
+                        'addService-3',
                         'addService-1'
                     ],
                 }
             ], cs.recv()
         )
+
+    def test_no_machines(self):
+        cs = parse.ChangeSet({'relations': []})
+        parse.handle_machines(cs)
+        self.assertEqual([], cs.recv())
