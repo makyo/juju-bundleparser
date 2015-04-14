@@ -1,0 +1,6 @@
+#!/usr/bin/env python
+
+from bundleparser import bundleparser
+
+if __name__ == '__main__':
+    bundleparser.main()
