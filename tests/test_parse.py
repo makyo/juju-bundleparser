@@ -295,7 +295,7 @@ class TestHandleRelations(unittest.TestCase):
             ], cs.recv()
         )
 
-    def test_no_machines(self):
+    def test_no_relations(self):
         cs = parse.ChangeSet({'relations': []})
-        parse.handle_machines(cs)
+        parse.handle_relations(cs)
         self.assertEqual([], cs.recv())
