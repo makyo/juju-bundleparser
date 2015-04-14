@@ -135,6 +135,25 @@ def handle_machines(changeset):
             'requires': [],
         })
         changeset.machines_added[machine_name] = record_id
+    return handle_relations
+
+
+def handle_relations(changeset):
+    """Populate the change set with addRelation changes."""
+    for relation in changeset.bundle.get('relations', []):
+        changeset.send({
+            'id': 'addRelation-{}'.format(changeset.next_action()),
+            'method': 'addRelation',
+            'args': [
+                [
+                    '${}'.format(
+                        changeset.services_added[rel_name.split(':')[0]]),
+                    {'name': rel_name.split(':')[0]},
+                ] for rel_name in relation
+            ],
+            'requires': [changeset.services_added[rel_name.split(':')[0]] for
+                         rel_name in relation],
+        })
     return handle_units
 
 
