@@ -2,6 +2,8 @@ import itertools
 
 from collections import namedtuple
 
+
+# Define a tuple holding a specific unit placement.
 UnitPlacement = namedtuple(
     'UnitPlacement', [
         'container_type',
@@ -13,6 +15,8 @@ UnitPlacement = namedtuple(
 
 
 def _parse_v3_unit_placement(placement):
+    """Return a UnitPlacement for bundles version 3, given a placement string.
+    """
     container = machine = service = unit = ''
     if ':' in placement:
         container, placement = placement.split(':')
@@ -26,6 +30,8 @@ def _parse_v3_unit_placement(placement):
 
 
 def _parse_v4_unit_placement(placement):
+    """Return a UnitPlacement for bundles version 4, given a placement string.
+    """
     container = machine = service = unit = ''
     if ':' in placement:
         container, placement = placement.split(':')
@@ -39,6 +45,10 @@ def _parse_v4_unit_placement(placement):
 
 
 class ChangeSet(object):
+    """Hold the state for parser handlers.
+
+    Also expose methods to send and receive changes (usually Python dicts).
+    """
     services_added = {}
     machines_added = {}
 
@@ -48,18 +58,28 @@ class ChangeSet(object):
         self._counter = itertools.count()
 
     def send(self, change):
+        """Store a change in this change set."""
         self._changeset.append(change)
 
     def recv(self):
+        """Return all the collected changes.
+
+        Changes are stored using self.send().
+        """
         changeset = self._changeset
         self._changeset = []
         return changeset
 
     def next_action(self):
+        """Return an incremental integer to be included in the changes ids."""
         return self._counter.next()
 
 
 def parse(bundle, handler=None):
+    """Return a generator yielding changes required to deploy the given bundle.
+
+    The bundle argument is a YAML decoded Python dict.
+    """
     changeset = ChangeSet(bundle)
     if handler is None:
         handler = handle_services
@@ -72,6 +92,7 @@ def parse(bundle, handler=None):
 
 
 def handle_services(changeset):
+    """Populate the change set with addCharm and addService changes."""
     charms = {}
     for service_name, service in changeset.bundle['services'].items():
         # Add the addCharm record if one hasn't been added yet.
@@ -102,12 +123,15 @@ def handle_services(changeset):
 
 
 def handle_machines(changeset):
+    """Populate the change set with addMachine changes."""
     for machine_name, machine in changeset.bundle.get('machines', {}).items():
         record_id = 'addMachine-{}'.format(changeset.next_action())
         changeset.send({
             'id': record_id,
             'method': 'addMachine',
-            'args': [],  # TODO
+            'args': [
+                machine.get('series', ''),
+                machine.get('constraints', {})],
             'requires': [],
         })
         changeset.machines_added[machine_name] = record_id
@@ -115,6 +139,7 @@ def handle_machines(changeset):
 
 
 def handle_units(changeset):
+    """Populate the change set with addUnit changes."""
     units, records = {}, {}
     for service_name, service in changeset.bundle['services'].items():
         for i in range(service['num_units']):
