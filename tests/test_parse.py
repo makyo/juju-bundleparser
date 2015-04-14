@@ -200,7 +200,7 @@ class TestHandleMachines(unittest.TestCase):
             ))
         })
         handler = parse.handle_machines(cs)
-        self.assertEqual(parse.handle_units, handler)
+        self.assertEqual(parse.handle_relations, handler)
         self.assertEqual(
             [
                 {
@@ -228,3 +228,69 @@ class TestHandleMachines(unittest.TestCase):
         cs = parse.ChangeSet({'services': {}})
         parse.handle_machines(cs)
         self.assertEqual([], cs.recv())
+
+
+class TestHandleRelations(unittest.TestCase):
+
+    def test_handler(self):
+        cs = parse.ChangeSet({
+            'services': OrderedDict((
+                ('django', {
+                    'charm': 'cs:trusty/django-42',
+                }),
+                ('mysql', {
+                    'charm': 'cs:utopic/mysql-47',
+                }),
+            )),
+            'relations': [
+                ['mysql:foo', 'django:bar'],
+            ],
+        })
+        parse.handle_services(cs)
+        handler = parse.handle_relations(cs)
+        self.assertEqual(parse.handle_units, handler)
+        self.assertEqual(
+            [
+                {
+                    'id': 'addCharm-0',
+                    'method': 'addCharm',
+                    'args': ['cs:trusty/django-42'],
+                    'requires': [],
+                },
+                {
+                    'id': 'addService-1',
+                    'method': 'deploy',
+                    'args': ['cs:trusty/django-42', 'django', {}],
+                    'requires': ['addCharm-0'],
+                },
+                {
+                    'id': 'addCharm-2',
+                    'method': 'addCharm',
+                    'args': ['cs:utopic/mysql-47'],
+                    'requires': [],
+                },
+                {
+                    'id': 'addService-3',
+                    'method': 'deploy',
+                    'args': ['cs:utopic/mysql-47', 'mysql', {}],
+                    'requires': ['addCharm-2'],
+                },
+                {
+                    'id': 'addRelation-4',
+                    'method': 'addRelation',
+                    'args': [
+                        [
+                            '$addService-3',
+                            {'name': 'mysql'}
+                        ], [
+                            '$addService-1', 
+                            {'name': 'django'}
+                        ]
+                    ], 
+                    'requires': [
+                        'addService-3', 
+                        'addService-1'
+                    ],
+                }
+            ], cs.recv()
+        )
